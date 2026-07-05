@@ -66,7 +66,7 @@
 
     .workspace {
       display: grid;
-      grid-template-columns: minmax(290px, 360px) 1fr;
+      grid-template-columns: minmax(290px, 380px) 1fr;
       gap: 16px;
       align-items: start;
     }
@@ -94,6 +94,13 @@
       margin-bottom: 12px;
     }
 
+    .library-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+
     label {
       display: flex;
       justify-content: space-between;
@@ -114,6 +121,7 @@
     a:hover { text-decoration: underline; }
 
     input,
+    select,
     textarea {
       width: 100%;
       border: 1px solid var(--line);
@@ -123,7 +131,8 @@
       font: inherit;
     }
 
-    input {
+    input,
+    select {
       height: 38px;
       padding: 7px 10px;
     }
@@ -151,6 +160,7 @@
       font-weight: 700;
       min-height: 38px;
       padding: 7px 12px;
+      white-space: nowrap;
     }
 
     button.primary {
@@ -165,7 +175,8 @@
       color: var(--accent);
     }
 
-    button:disabled {
+    button:disabled,
+    select:disabled {
       opacity: .55;
       cursor: default;
     }
@@ -174,6 +185,12 @@
       margin: 8px 0 0;
       color: var(--muted);
       font-size: .76rem;
+    }
+
+    .selected-library {
+      min-height: 20px;
+      color: var(--accent);
+      font-weight: 700;
     }
 
     .topbar {
@@ -378,14 +395,17 @@
       .summary { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
     }
 
-    @media (max-width: 520px) {
+    @media (max-width: 560px) {
       header { padding-top: 20px; }
       main { padding: 12px; }
+      .library-row,
+      .actions {
+        grid-template-columns: 1fr;
+      }
       .book-head {
         flex-direction: column;
         gap: 7px;
       }
-      .actions { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -393,7 +413,7 @@
   <header>
     <div class="header-inner">
       <h1>Amazon欲しいものリスト 図書館在庫チェッカー</h1>
-      <p>Amazonの本リンク、ISBN、ASINをもとに、指定した図書館システムの所蔵・貸出状況をまとめて確認できます。</p>
+      <p>Amazonの欲しいものリストに入っている本を取り込み、選んだ図書館システムの所蔵・貸出状況をまとめて確認できます。</p>
     </div>
   </header>
 
@@ -403,19 +423,27 @@
         <h2 id="settingsTitle">確認する内容</h2>
 
         <div class="field">
-          <label for="systemId">
-            図書館システムID
-            <a href="https://calil.jp/library/" target="_blank" rel="noopener">探す</a>
-          </label>
-          <input id="systemId" type="text" autocomplete="off" placeholder="例: Tokyo_Setagaya">
-        </div>
-
-        <div class="field">
-          <label for="appkey">
-            カーリルAPIキー
-            <a href="https://calil.jp/api/dashboard/" target="_blank" rel="noopener">取得</a>
-          </label>
-          <input id="appkey" type="text" autocomplete="off" placeholder="任意">
+          <label>図書館を選ぶ</label>
+          <div class="library-row">
+            <select id="pref">
+              <option value="">都道府県</option>
+              <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option>
+              <option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option>
+              <option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option>
+              <option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option>
+              <option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option>
+              <option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option>
+              <option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option>
+              <option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option>
+            </select>
+            <input id="city" type="text" autocomplete="off" placeholder="市区町村 任意">
+            <button id="librarySearchBtn" type="button">検索</button>
+          </div>
+          <select id="librarySelect" disabled>
+            <option value="">都道府県を選んで検索してください</option>
+          </select>
+          <input id="systemId" type="hidden">
+          <p class="hint selected-library" id="selectedLibrary">図書館はまだ選択されていません。</p>
         </div>
 
         <div class="field-grid">
@@ -462,13 +490,14 @@
   </main>
 
   <footer>
-    <p>在庫データは <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル図書館API</a> を利用しています。入力内容はこのブラウザ内に保存され、在庫確認時にISBNと図書館システムIDだけをカーリルへ送信します。</p>
+    <p>在庫データと図書館データは <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル図書館API</a> を利用しています。入力内容はこのブラウザ内に保存され、在庫確認時にISBNと図書館システムIDをカーリルへ送信します。</p>
   </footer>
 
   <script>
-    const STORAGE_KEY = "wishlist-library-checker-v3";
+    const STORAGE_KEY = "wishlist-library-checker-v4";
     const BATCH_SIZE = 40;
     const WISHLIST_PROXY_URL = "https://amazon-wishlist-proxy.aku0v0son.workers.dev";
+    const CALIL_APPKEY = "b769cea464ba5dea279429c458193c35";
 
     const state = {
       books: [],
@@ -477,12 +506,17 @@
       query: "",
       checking: false,
       checked: 0,
-      total: 0
+      total: 0,
+      librarySystems: []
     };
 
     const els = {
+      pref: document.getElementById("pref"),
+      city: document.getElementById("city"),
+      librarySearchBtn: document.getElementById("librarySearchBtn"),
+      librarySelect: document.getElementById("librarySelect"),
+      selectedLibrary: document.getElementById("selectedLibrary"),
       systemId: document.getElementById("systemId"),
-      appkey: document.getElementById("appkey"),
       wishlistUrl: document.getElementById("wishlistUrl"),
       sourceText: document.getElementById("sourceText"),
       checkBtn: document.getElementById("checkBtn"),
@@ -667,6 +701,106 @@
       return items;
     }
 
+    function calilKeyParam() {
+      if (!CALIL_APPKEY) throw new Error("calil-key");
+      return `appkey=${encodeURIComponent(CALIL_APPKEY)}&`;
+    }
+
+    function setLibrarySelectMessage(message) {
+      els.librarySelect.innerHTML = `<option value="">${esc(message)}</option>`;
+      els.librarySelect.disabled = true;
+    }
+
+    function normalizeLibraryRows(data) {
+      const rows = Array.isArray(data) ? data : (data && data.Libraries) || [];
+      const systems = new Map();
+
+      rows.forEach(row => {
+        if (!row || !row.systemid) return;
+        const current = systems.get(row.systemid) || {
+          systemid: row.systemid,
+          systemname: row.systemname || row.formal || row.short || row.systemid,
+          pref: row.pref || "",
+          city: row.city || "",
+          libs: []
+        };
+        current.libs.push(row.short || row.formal || row.libkey || row.systemname || row.systemid);
+        if (!current.city && row.city) current.city = row.city;
+        systems.set(row.systemid, current);
+      });
+
+      return Array.from(systems.values()).sort((a, b) =>
+        `${a.pref}${a.city}${a.systemname}`.localeCompare(`${b.pref}${b.city}${b.systemname}`, "ja")
+      );
+    }
+
+    function renderLibraryOptions(systems, selectedSystemId = "") {
+      state.librarySystems = systems;
+      if (systems.length === 0) {
+        setLibrarySelectMessage("該当する図書館が見つかりませんでした");
+        return;
+      }
+
+      els.librarySelect.disabled = false;
+      els.librarySelect.innerHTML = '<option value="">図書館を選択してください</option>' + systems.map(system => {
+        const area = [system.pref, system.city].filter(Boolean).join(" ");
+        const label = `${system.systemname}${area ? `（${area}）` : ""} / ${system.libs.length}館`;
+        return `<option value="${esc(system.systemid)}">${esc(label)}</option>`;
+      }).join("");
+
+      if (selectedSystemId && systems.some(system => system.systemid === selectedSystemId)) {
+        els.librarySelect.value = selectedSystemId;
+        selectLibraryBySystemId(selectedSystemId);
+      }
+    }
+
+    function selectLibraryBySystemId(systemId) {
+      const system = state.librarySystems.find(item => item.systemid === systemId);
+      els.systemId.value = systemId || "";
+      if (system) {
+        const area = [system.pref, system.city].filter(Boolean).join(" ");
+        els.selectedLibrary.textContent = `選択中: ${system.systemname}${area ? `（${area}）` : ""}`;
+      } else if (systemId) {
+        els.selectedLibrary.textContent = `選択中: ${systemId}`;
+      } else {
+        els.selectedLibrary.textContent = "図書館はまだ選択されていません。";
+      }
+      saveSettings();
+    }
+
+    async function searchLibraries() {
+      const pref = els.pref.value.trim();
+      const city = els.city.value.trim();
+
+      if (!pref) {
+        els.status.textContent = "都道府県を選んでください。";
+        els.pref.focus();
+        return;
+      }
+
+      els.librarySearchBtn.disabled = true;
+      setLibrarySelectMessage("図書館を検索しています...");
+      els.status.innerHTML = '<span class="spinner"></span>図書館を検索しています。';
+
+      try {
+        const params = `${calilKeyParam()}pref=${encodeURIComponent(pref)}${city ? `&city=${encodeURIComponent(city)}` : ""}&format=json&limit=500`;
+        const data = await jsonp(`https://api.calil.jp/library?${params}`);
+        const systems = normalizeLibraryRows(data);
+        renderLibraryOptions(systems, els.systemId.value);
+        els.status.textContent = `${systems.length}件の図書館システムが見つかりました。`;
+        saveSettings();
+      } catch (error) {
+        if (error.message === "calil-key") {
+          els.status.textContent = "管理者側のカーリルAPIキーが未設定です。";
+        } else {
+          els.status.textContent = "図書館検索に失敗しました。時間をおいて再度お試しください。";
+        }
+        setLibrarySelectMessage("検索できませんでした");
+      } finally {
+        els.librarySearchBtn.disabled = false;
+      }
+    }
+
     async function importWishlist() {
       if (state.checking) return;
 
@@ -686,7 +820,7 @@
         const html = await fetchWishlistHtml(wishlistUrl);
         const items = parseWishlistHtml(html);
         if (items.length === 0) {
-          els.status.textContent = "本のリンクを取得できませんでした。リストの公開設定と、プロキシがHTMLを返しているか確認してください。";
+          els.status.textContent = "本のリンクを取得できませんでした。リストの公開設定と、Amazon側の応答を確認してください。";
           return;
         }
 
@@ -709,7 +843,7 @@
         } else if (error.message === "proxy-url") {
           els.status.textContent = "管理者側のリスト取得設定が未設定です。";
         } else {
-          els.status.textContent = "リスト取得に失敗しました。プロキシ設定、公開リスト設定、Amazon側の応答を確認してください。";
+          els.status.textContent = "リスト取得に失敗しました。公開リスト設定、またはAmazon側の応答を確認してください。";
         }
       } finally {
         els.importBtn.disabled = false;
@@ -747,8 +881,10 @@
 
     function saveSettings() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        pref: els.pref.value.trim(),
+        city: els.city.value.trim(),
         systemId: els.systemId.value.trim(),
-        appkey: els.appkey.value.trim(),
+        selectedLibrary: els.selectedLibrary.textContent,
         wishlistUrl: els.wishlistUrl.value.trim(),
         sourceText: els.sourceText.value
       }));
@@ -757,8 +893,10 @@
     function loadSettings() {
       try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        els.pref.value = saved.pref || "";
+        els.city.value = saved.city || "";
         els.systemId.value = saved.systemId || "";
-        els.appkey.value = saved.appkey || "";
+        els.selectedLibrary.textContent = saved.selectedLibrary || (saved.systemId ? `選択中: ${saved.systemId}` : "図書館はまだ選択されていません。");
         els.wishlistUrl.value = saved.wishlistUrl || "";
         els.sourceText.value = saved.sourceText || "";
       } catch {
@@ -808,7 +946,7 @@
             ? `<a href="https://calil.jp/book/${esc(book.isbn)}" target="_blank" rel="noopener">カーリル</a>`
             : `<a href="https://calil.jp/search?q=${encodeURIComponent(book.title)}" target="_blank" rel="noopener">カーリル検索</a>`;
           const note = !libs && verdict === "none"
-            ? '<div class="meta">指定した図書館システムでは所蔵が見つかりませんでした。</div>'
+            ? '<div class="meta">選択した図書館システムでは所蔵が見つかりませんでした。</div>'
             : !libs && verdict === "unknown"
               ? '<div class="meta">ISBNを取得できないため、自動の在庫確認は行いません。</div>'
               : !libs && verdict === "wait"
@@ -896,8 +1034,16 @@
 
       const systemId = els.systemId.value.trim();
       if (!systemId) {
-        els.status.textContent = "図書館システムIDを入力してください。";
-        els.systemId.focus();
+        els.status.textContent = "図書館を選択してください。";
+        els.pref.focus();
+        return;
+      }
+
+      let keyParam = "";
+      try {
+        keyParam = calilKeyParam();
+      } catch {
+        els.status.textContent = "管理者側のカーリルAPIキーが未設定です。";
         return;
       }
 
@@ -925,9 +1071,6 @@
       state.checking = true;
       els.checkBtn.disabled = true;
       els.bar.style.width = "0%";
-      const keyParam = els.appkey.value.trim()
-        ? `appkey=${encodeURIComponent(els.appkey.value.trim())}&`
-        : "";
 
       try {
         for (let i = 0; i < batches.length; i += 1) {
@@ -972,6 +1115,10 @@
       render();
     });
 
+    els.librarySearchBtn.addEventListener("click", searchLibraries);
+    els.librarySelect.addEventListener("change", event => selectLibraryBySystemId(event.target.value));
+    els.pref.addEventListener("change", saveSettings);
+    els.city.addEventListener("change", saveSettings);
     els.checkBtn.addEventListener("click", startCheck);
     els.importBtn.addEventListener("click", importWishlist);
     els.clearBtn.addEventListener("click", () => {
@@ -987,7 +1134,7 @@
       render();
     });
 
-    [els.systemId, els.appkey, els.wishlistUrl, els.sourceText].forEach(input => {
+    [els.wishlistUrl, els.sourceText].forEach(input => {
       input.addEventListener("change", saveSettings);
     });
 
